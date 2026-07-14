@@ -1,8 +1,8 @@
-# 🥗 Calorie Tracker
+# 🥗 Perfect Body
 
 A free, private, single-file calorie and nutrition tracker that runs entirely in your browser.
 
-**[Open the app →](https://serg010101.github.io/calorie-tracker/)**
+**[Open the app →](https://serg010101.github.io/perfect-body/)**
 
 ## Features
 
