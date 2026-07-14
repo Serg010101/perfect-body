@@ -302,6 +302,57 @@
   </div>
 </div>
 
+<!-- Onboarding / profile modal -->
+<div class="modal-back" id="onboardModal">
+  <div class="modal">
+    <h3 id="onboardTitle">Welcome! Let's set your goals</h3>
+    <div class="note" style="font-size:12.5px;color:var(--muted);margin-bottom:14px">
+      Answer a few questions and we'll calculate your daily calorie and macro targets. You can change everything later in Settings.
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Sex</label>
+        <select id="obSex"><option value="male">Male</option><option value="female">Female</option></select>
+      </div>
+      <div class="field"><label>Age</label><input type="number" id="obAge" min="14" max="99" placeholder="33"></div>
+      <div class="field"><label>Height (cm)</label><input type="number" id="obHeight" min="120" max="230" placeholder="175"></div>
+      <div class="field"><label>Weight (kg)</label><input type="number" id="obWeight" min="35" max="250" step="0.1" placeholder="75"></div>
+      <div class="field"><label>Workouts per week</label><input type="number" id="obWorkouts" min="0" max="14" placeholder="3"></div>
+      <div class="field"><label>Steps per day (avg)</label><input type="number" id="obSteps" min="0" max="40000" step="500" placeholder="10000"></div>
+    </div>
+    <div class="field">
+      <label>Active calories per day (optional)</label>
+      <input type="number" id="obActive" min="0" max="3000" step="10" placeholder="e.g. 800 — from your smartwatch">
+      <div class="note">From Apple Watch / Fitbit / Garmin "active energy". Leave empty and we'll estimate from your steps and workouts.</div>
+    </div>
+    <div class="field" id="obPregWrap" style="display:none">
+      <label>Are you pregnant? (optional)</label>
+      <select id="obPreg">
+        <option value="">Prefer not to say</option>
+        <option value="no">No</option>
+        <option value="yes">Yes</option>
+      </select>
+      <div class="note" id="obPregNote" style="display:none;color:var(--danger)">Pregnancy changes calorie and nutrient needs — please consult your doctor. Standard targets are shown as a reference only.</div>
+    </div>
+    <div class="field">
+      <label>Your goal</label>
+      <select id="obGoal">
+        <option value="-0.25">Lose slowly (~0.25 kg/week)</option>
+        <option value="-0.5" selected>Lose moderately (~0.5 kg/week)</option>
+        <option value="-0.75">Lose faster (~0.75 kg/week)</option>
+        <option value="0">Maintain weight</option>
+        <option value="0.25">Gain slowly (~0.25 kg/week)</option>
+        <option value="0.4">Gain moderately (~0.4 kg/week)</option>
+      </select>
+    </div>
+    <div id="obResult" style="display:none;background:var(--accent-soft);border-radius:10px;padding:12px 14px;margin-bottom:6px;font-size:13.5px;line-height:1.6"></div>
+    <div class="modal-actions">
+      <button class="btn secondary sm" id="obSkip">Skip</button>
+      <button class="btn sm" id="obCalc">Calculate</button>
+      <button class="btn sm" id="obApply" style="display:none">Use these goals</button>
+    </div>
+  </div>
+</div>
+
 <!-- Settings modal -->
 <div class="modal-back" id="settingsModal">
   <div class="modal">
@@ -312,6 +363,9 @@
       <div class="field"><label>Protein (g)</label><input type="number" id="setProtein" min="0"></div>
       <div class="field"><label>Carbs (g)</label><input type="number" id="setCarbs" min="0"></div>
       <div class="field"><label>Fat (g)</label><input type="number" id="setFat" min="0"></div>
+    </div>
+    <div class="modal-actions" style="justify-content:flex-start;margin-top:0;margin-bottom:6px">
+      <button class="btn secondary sm" id="recalcBtn">↻ Recalculate from profile</button>
     </div>
     <hr class="settings-sep">
     <div class="settings-h">AI food entry (optional)</div>
@@ -545,10 +599,11 @@ const FOODS = [
 ];
 
 /* ==================== MICRONUTRIENTS ====================
-   Targets: 33-year-old male (NIH RDAs).
-   Keys: vd VitD3(mcg) mgn Magnesium(mg) pot Potassium(mg) zn Zinc(mg) b6 B6(mg)
-         b12 B12(mcg) se Selenium(mcg) vc VitC(mg) va VitA(mcg RAE) ve VitE(mg) */
-const MICROS = [
+   Sex-specific top-10 targets (NIH RDAs, adult).
+   Keys: vd VitD(mcg) mgn Magnesium(mg) pot Potassium(mg) zn Zinc(mg) b6 B6(mg)
+         b12 B12(mcg) se Selenium(mcg) vc VitC(mg) va VitA(mcg RAE) ve VitE(mg)
+         fe Iron(mg) fol Folate(mcg DFE) ca Calcium(mg) io Iodine(mcg) */
+const MICROS_MALE = [
   {key:"vd", label:"Vitamin D3", unit:"mcg", goal:15},
   {key:"mgn",label:"Magnesium",  unit:"mg",  goal:420},
   {key:"pot",label:"Potassium",  unit:"mg",  goal:3400},
@@ -560,157 +615,172 @@ const MICROS = [
   {key:"va", label:"Vitamin A",  unit:"mcg", goal:900},
   {key:"ve", label:"Vitamin E",  unit:"mg",  goal:15}
 ];
+const MICROS_FEMALE = [
+  {key:"fe", label:"Iron",       unit:"mg",  goal:18},
+  {key:"fol",label:"Folate",     unit:"mcg", goal:400},
+  {key:"vd", label:"Vitamin D",  unit:"mcg", goal:15},
+  {key:"mgn",label:"Magnesium",  unit:"mg",  goal:320},
+  {key:"ca", label:"Calcium",    unit:"mg",  goal:1000},
+  {key:"io", label:"Iodine",     unit:"mcg", goal:150},
+  {key:"b12",label:"Vitamin B12",unit:"mcg", goal:2.4},
+  {key:"zn", label:"Zinc",       unit:"mg",  goal:8},
+  {key:"pot",label:"Potassium",  unit:"mg",  goal:2600},
+  {key:"vc", label:"Vitamin C",  unit:"mg",  goal:75}
+];
+const ALL_MICRO_KEYS = ["vd","mgn","pot","zn","b6","b12","se","vc","va","ve","fe","fol","ca","io"];
+function MICROS_active(){
+  return (state.profile && state.profile.sex === "female") ? MICROS_FEMALE : MICROS_MALE;
+}
 
 /* Approximate micro values per 100 g (USDA), keyed by primary food name.
    Foods not listed contribute 0. */
 const MICRO_DATA = {
-  "egg":{vd:2,mgn:12,pot:138,zn:1.3,b6:.17,b12:.9,se:30,va:160,ve:1},
-  "egg white":{pot:163,se:20},
-  "scrambled eggs":{vd:1.7,mgn:11,pot:132,zn:1.2,b6:.15,b12:.8,se:25,va:150,ve:1},
-  "omelette":{vd:1.7,mgn:11,pot:132,zn:1.2,b6:.15,b12:.8,se:25,va:150,ve:1},
-  "toast":{mgn:23,pot:126,zn:.74,b6:.09,se:17},
-  "whole wheat bread":{mgn:76,pot:254,zn:1.8,b6:.22,se:26},
-  "bagel":{mgn:25,pot:100,zn:1,se:26},
-  "croissant":{pot:118,se:22,va:117},
-  "tortilla":{mgn:22,pot:120,se:22},
-  "lavash":{mgn:20,se:20},
-  "butter":{vd:1.5,va:684,ve:2.3},
-  "peanut butter":{mgn:154,pot:649,zn:2.5,b6:.44,se:4,ve:9},
+  "egg":{vd:2,mgn:12,pot:138,zn:1.3,b6:.17,b12:.9,se:30,va:160,ve:1,fe:1.8,fol:47,ca:56,io:24},
+  "egg white":{pot:163,se:20,fe:.08,fol:4,ca:7,io:2},
+  "scrambled eggs":{vd:1.7,mgn:11,pot:132,zn:1.2,b6:.15,b12:.8,se:25,va:150,ve:1,fe:1.6,fol:40,ca:60,io:22},
+  "omelette":{vd:1.7,mgn:11,pot:132,zn:1.2,b6:.15,b12:.8,se:25,va:150,ve:1,fe:1.6,fol:40,ca:60,io:22},
+  "toast":{mgn:23,pot:126,zn:.74,b6:.09,se:17,fe:3.6,fol:110,ca:144,io:5},
+  "whole wheat bread":{mgn:76,pot:254,zn:1.8,b6:.22,se:26,fe:2.5,fol:42,ca:107,io:3},
+  "bagel":{mgn:25,pot:100,zn:1,se:26,fe:3.6,fol:120,ca:20,io:5},
+  "croissant":{pot:118,se:22,va:117,fe:2,fol:60,ca:37,io:5},
+  "tortilla":{mgn:22,pot:120,se:22,fe:2.4,fol:90,ca:146,io:2},
+  "lavash":{mgn:20,se:20,fe:2,fol:70,ca:30},
+  "butter":{vd:1.5,va:684,ve:2.3,ca:24},
+  "peanut butter":{mgn:154,pot:649,zn:2.5,b6:.44,se:4,ve:9,fe:1.9,fol:87,ca:49},
   "olive oil":{ve:14.4},
   "mayo":{ve:3.3},
-  "ketchup":{pot:281},
-  "salsa":{pot:275,vc:4,va:22},
-  "guacamole":{mgn:22,pot:340,b6:.2,vc:7,ve:1.5},
-  "hummus":{mgn:71,pot:228,zn:1.8,b6:.2,se:2.6},
-  "sour cream":{va:165},
-  "cream cheese":{va:308},
-  "banana":{mgn:27,pot:358,b6:.37,vc:8.7},
-  "apple":{pot:107,vc:4.6},
-  "orange":{mgn:10,pot:181,b6:.06,vc:53},
-  "pear":{pot:116,vc:4.3},
-  "peach":{pot:190,vc:6.6,va:16},
-  "strawberries":{mgn:13,pot:153,vc:59},
-  "blueberries":{pot:77,vc:9.7,ve:.6},
-  "grapes":{pot:191,vc:3.2},
-  "cherries":{pot:222,vc:7},
-  "watermelon":{pot:112,vc:8.1,va:28},
-  "mango":{pot:168,vc:36,va:54,ve:.9},
-  "pineapple":{mgn:12,pot:109,vc:48},
-  "kiwi":{mgn:17,pot:312,vc:93,ve:1.5},
-  "pomegranate":{pot:236,vc:10},
-  "fig":{mgn:17,pot:232},
-  "date":{mgn:54,pot:696},
-  "raisins":{mgn:32,pot:749},
-  "avocado":{mgn:29,pot:485,zn:.6,b6:.26,vc:10,ve:2.1},
-  "milk":{vd:1.2,mgn:10,pot:150,zn:.4,b12:.5,se:3.7,va:46},
-  "skim milk":{vd:1.2,mgn:11,pot:156,zn:.4,b12:.5,se:3.1,va:59},
-  "almond milk":{vd:1,va:60,ve:4},
-  "kefir":{vd:1,mgn:12,pot:152,b12:.4},
-  "yogurt":{mgn:11,pot:155,zn:.6,b12:.4,se:2.2},
-  "greek yogurt":{mgn:11,pot:141,zn:.5,b12:.75,se:9.7},
-  "cottage cheese":{pot:104,zn:.4,b12:.4,se:9.7},
-  "cheese":{mgn:27,pot:76,zn:3.1,b12:.9,se:28,va:330},
-  "mozzarella":{zn:2.9,b12:2.3,se:17,va:179},
-  "feta":{pot:62,zn:2.9,b12:1.7,se:15,va:125},
-  "oatmeal":{mgn:26,pot:70,zn:.6,se:5},
-  "oats":{mgn:177,pot:429,zn:4,b6:.12,se:28},
-  "cereal":{vd:3,mgn:30,pot:100,zn:8,b6:1,b12:4,se:12,va:300},
-  "granola":{mgn:90,pot:300,zn:2.5,se:12,ve:4},
-  "rice":{mgn:12,pot:35,zn:.5,se:7.5},
-  "brown rice":{mgn:43,pot:43,zn:.6,b6:.15,se:5.8},
-  "fried rice":{mgn:12,pot:90,se:8},
-  "pasta":{mgn:18,pot:44,zn:.5,se:26},
-  "mac and cheese":{pot:80,zn:1,b12:.2,se:12,va:80},
-  "quinoa":{mgn:64,pot:172,zn:1.1,b6:.12,se:2.8},
-  "buckwheat":{mgn:51,pot:88,zn:.6},
-  "couscous":{mgn:8,pot:58,se:27},
-  "potato":{mgn:23,pot:421,b6:.3,vc:19.7},
-  "sweet potato":{mgn:25,pot:337,b6:.21,vc:2.4,va:709},
-  "french fries":{mgn:27,pot:579,b6:.4,vc:9.7},
-  "mashed potatoes":{mgn:18,pot:300,b6:.24,vc:10},
-  "chicken":{mgn:29,pot:256,zn:1,b6:.6,b12:.3,se:27},
-  "chicken thigh":{pot:230,zn:2.4,b6:.36,b12:.6,se:24},
-  "fried chicken":{pot:220,zn:1.5,b6:.35,se:24},
-  "steak":{mgn:21,pot:318,zn:4.8,b6:.38,b12:2.6,se:26},
-  "ground beef":{pot:346,zn:6.3,b6:.36,b12:2.5,se:22},
-  "kebab":{pot:280,zn:3.5,b6:.3,b12:1.5,se:18},
-  "bacon":{pot:565,zn:3.5,b6:.35,b12:1.2,se:62},
-  "sausage":{pot:294,zn:2,b12:1,se:15},
-  "ham":{pot:287,zn:2.2,b6:.4,b12:.7,se:25},
-  "turkey":{pot:249,zn:1.7,b6:.8,b12:1,se:30},
-  "salmon":{vd:11,mgn:27,pot:363,zn:.4,b6:.6,b12:3.2,se:36,ve:1.1},
-  "tuna":{vd:1.7,mgn:27,pot:237,b6:.35,b12:2.5,se:80},
-  "shrimp":{pot:264,zn:1.6,b12:1.1,se:49.5},
-  "cod":{mgn:32,pot:413,b6:.24,b12:.9,se:33},
-  "tofu":{mgn:30,pot:121,zn:.8,se:8.9},
-  "pizza":{mgn:20,pot:172,zn:1.2,b12:.3,se:13,va:60},
-  "burger":{mgn:18,pot:198,zn:2.3,b12:.9,se:15},
-  "hot dog":{pot:152,zn:2.4,b12:1.3,se:15},
-  "sandwich":{mgn:18,pot:150,zn:1,b6:.1,se:15},
-  "burrito":{mgn:30,pot:240,zn:1.3,se:12},
-  "taco":{pot:200,zn:1.8,b12:.5,se:10},
-  "sushi":{mgn:15,pot:120,b12:.4,se:8},
-  "ramen":{mgn:12,pot:80,se:10},
-  "soup":{pot:80,va:50},
-  "borscht":{mgn:12,pot:180,vc:8,va:80},
-  "curry":{mgn:20,pot:200,b6:.15,vc:5},
-  "stir fry":{mgn:18,pot:220,b6:.15,vc:25,va:100},
-  "lasagna":{pot:220,zn:1.4,b12:.6,se:14,va:80},
-  "caesar salad":{pot:180,se:8,vc:10,va:120},
-  "salad":{mgn:12,pot:190,vc:12,va:150},
-  "carrot":{pot:320,b6:.14,vc:5.9,va:835},
-  "broccoli":{mgn:21,pot:316,b6:.18,se:2.5,vc:89,va:31},
-  "spinach":{mgn:79,pot:558,zn:.5,vc:28,va:469,ve:2},
-  "cucumber":{mgn:13,pot:147,vc:2.8},
-  "tomato":{pot:237,vc:14,va:42,ve:.5},
-  "bell pepper":{pot:211,b6:.29,vc:128,va:80,ve:1.6},
-  "onion":{pot:146,b6:.12,vc:7.4},
-  "corn":{mgn:37,pot:270,b6:.09,vc:6.8},
-  "peas":{mgn:33,pot:244,zn:1.2,vc:40,va:38},
-  "green beans":{mgn:25,pot:211,vc:12,va:35},
-  "mushrooms":{vd:.2,pot:318,zn:.5,b6:.1,se:9.3},
-  "lettuce":{pot:194,vc:9,va:370},
-  "black beans":{mgn:70,pot:355,zn:1.1,se:1.2},
-  "chickpeas":{mgn:48,pot:291,zn:1.5,b6:.14,se:3.7},
-  "lentils":{mgn:36,pot:369,zn:1.3,b6:.18,se:2.8},
-  "edamame":{mgn:64,pot:436,zn:1.4,vc:6.1},
-  "almonds":{mgn:270,pot:733,zn:3.1,se:4,ve:25.6},
-  "walnuts":{mgn:158,pot:441,zn:3.1,b6:.54,ve:.7},
-  "cashews":{mgn:292,pot:660,zn:5.8,se:20},
-  "peanuts":{mgn:168,pot:705,zn:3.3,b6:.35,se:7.2,ve:8.3},
-  "chips":{mgn:67,pot:1196,b6:.66,vc:15,ve:3},
-  "tortilla chips":{mgn:85,pot:215,zn:1.5,se:6},
-  "popcorn":{mgn:144,pot:329,zn:3.1},
-  "crackers":{mgn:18,pot:120,se:12},
-  "rice cake":{mgn:131,pot:428,zn:3},
-  "dark chocolate":{mgn:228,pot:715,zn:3.3,se:6.8},
-  "chocolate":{mgn:63,pot:372,zn:2.3},
-  "cookie":{se:12,pot:100},
-  "donut":{se:12,pot:100},
-  "muffin":{se:13,pot:120},
-  "cake":{se:10,pot:110},
-  "ice cream":{pot:199,b12:.4,va:118},
-  "pancake":{se:14,pot:130},
-  "waffle":{se:14,pot:130},
-  "maple syrup":{mgn:21,pot:212,zn:1.5},
-  "protein powder":{mgn:50,pot:450,zn:1,b12:1.5},
-  "protein bar":{mgn:80,pot:250,zn:3},
-  "coffee":{pot:49},
-  "latte":{vd:.8,pot:120,b12:.4},
-  "cappuccino":{vd:.6,pot:100,b12:.3},
-  "orange juice":{mgn:11,pot:200,vc:50},
-  "apple juice":{pot:101},
-  "smoothie":{pot:200,vc:30},
-  "wine":{pot:71,mgn:12},
-  "beer":{pot:27,mgn:6}
-};
+  "ketchup":{pot:281,fe:.35,ca:15},
+  "salsa":{pot:275,vc:4,va:22,fe:.5,fol:10,ca:20},
+  "guacamole":{mgn:22,pot:340,b6:.2,vc:7,ve:1.5,fe:.55,fol:81,ca:12},
+  "hummus":{mgn:71,pot:228,zn:1.8,b6:.2,se:2.6,fe:2.4,fol:83,ca:38},
+  "sour cream":{va:165,ca:101},
+  "cream cheese":{va:308,ca:98},
+  "banana":{mgn:27,pot:358,b6:.37,vc:8.7,fe:.26,fol:20,ca:5},
+  "apple":{pot:107,vc:4.6,fe:.12,fol:3,ca:6},
+  "orange":{mgn:10,pot:181,b6:.06,vc:53,fe:.1,fol:30,ca:40},
+  "pear":{pot:116,vc:4.3,fe:.18,fol:7,ca:9},
+  "peach":{pot:190,vc:6.6,va:16,fe:.25,fol:4,ca:6},
+  "strawberries":{mgn:13,pot:153,vc:59,fe:.41,fol:24,ca:16},
+  "blueberries":{pot:77,vc:9.7,ve:.6,fe:.28,fol:6,ca:6},
+  "grapes":{pot:191,vc:3.2,fe:.36,fol:2,ca:10},
+  "cherries":{pot:222,vc:7,fe:.36,fol:4,ca:13},
+  "watermelon":{pot:112,vc:8.1,va:28,fe:.24,fol:3,ca:7},
+  "mango":{pot:168,vc:36,va:54,ve:.9,fe:.16,fol:43,ca:11},
+  "pineapple":{mgn:12,pot:109,vc:48,fe:.29,fol:18,ca:13},
+  "kiwi":{mgn:17,pot:312,vc:93,ve:1.5,fe:.31,fol:25,ca:34},
+  "pomegranate":{pot:236,vc:10,fe:.3,fol:38,ca:10},
+  "fig":{mgn:17,pot:232,fe:.37,fol:6,ca:35},
+  "date":{mgn:54,pot:696,fe:.9,fol:15,ca:64},
+  "raisins":{mgn:32,pot:749,fe:1.88,fol:5,ca:50},
+  "avocado":{mgn:29,pot:485,zn:.6,b6:.26,vc:10,ve:2.1,fe:.55,fol:81,ca:12},
+  "milk":{vd:1.2,mgn:10,pot:150,zn:.4,b12:.5,se:3.7,va:46,fe:.03,fol:5,ca:113,io:13},
+  "skim milk":{vd:1.2,mgn:11,pot:156,zn:.4,b12:.5,se:3.1,va:59,fol:5,ca:122,io:14},
+  "almond milk":{vd:1,va:60,ve:4,ca:184},
+  "kefir":{vd:1,mgn:12,pot:152,b12:.4,fol:8,ca:130,io:12},
+  "yogurt":{mgn:11,pot:155,zn:.6,b12:.4,se:2.2,fe:.05,fol:7,ca:121,io:16},
+  "greek yogurt":{mgn:11,pot:141,zn:.5,b12:.75,se:9.7,fol:7,ca:110,io:12},
+  "cottage cheese":{pot:104,zn:.4,b12:.4,se:9.7,fol:12,ca:83,io:15},
+  "cheese":{mgn:27,pot:76,zn:3.1,b12:.9,se:28,va:330,fe:.68,fol:18,ca:721,io:15},
+  "mozzarella":{zn:2.9,b12:2.3,se:17,va:179,fol:7,ca:505,io:12},
+  "feta":{pot:62,zn:2.9,b12:1.7,se:15,va:125,fe:.65,fol:32,ca:493,io:10},
+  "oatmeal":{mgn:26,pot:70,zn:.6,se:5,fe:1,fol:6,ca:9},
+  "oats":{mgn:177,pot:429,zn:4,b6:.12,se:28,fe:4.7,fol:56,ca:54},
+  "cereal":{vd:3,mgn:30,pot:100,zn:8,b6:1,b12:4,se:12,va:300,fe:12,fol:400,ca:100,io:5},
+  "granola":{mgn:90,pot:300,zn:2.5,se:12,ve:4,fe:3,fol:40,ca:60},
+  "rice":{mgn:12,pot:35,zn:.5,se:7.5,fe:1.2,fol:58,ca:10},
+  "brown rice":{mgn:43,pot:43,zn:.6,b6:.15,se:5.8,fe:.56,fol:9,ca:3},
+  "fried rice":{mgn:12,pot:90,se:8,fe:.8,fol:30,ca:20},
+  "pasta":{mgn:18,pot:44,zn:.5,se:26,fe:1.3,fol:74,ca:7},
+  "mac and cheese":{pot:80,zn:1,b12:.2,se:12,va:80,fe:1,fol:50,ca:120,io:8},
+  "quinoa":{mgn:64,pot:172,zn:1.1,b6:.12,se:2.8,fe:1.5,fol:42,ca:17},
+  "buckwheat":{mgn:51,pot:88,zn:.6,fe:.8,fol:14,ca:7},
+  "couscous":{mgn:8,pot:58,se:27,fe:.38,fol:15,ca:8},
+  "potato":{mgn:23,pot:421,b6:.3,vc:19.7,fe:.81,fol:28,ca:12},
+  "sweet potato":{mgn:25,pot:337,b6:.21,vc:2.4,va:709,fe:.61,fol:11,ca:30},
+  "french fries":{mgn:27,pot:579,b6:.4,vc:9.7,fe:.8,fol:30,ca:12},
+  "mashed potatoes":{mgn:18,pot:300,b6:.24,vc:10,fe:.3,fol:10,ca:25},
+  "chicken":{mgn:29,pot:256,zn:1,b6:.6,b12:.3,se:27,fe:1,fol:4,ca:15,io:7},
+  "chicken thigh":{pot:230,zn:2.4,b6:.36,b12:.6,se:24,fe:1.3,fol:4,ca:12,io:7},
+  "fried chicken":{pot:220,zn:1.5,b6:.35,se:24,fe:1.2,fol:15,ca:20},
+  "steak":{mgn:21,pot:318,zn:4.8,b6:.38,b12:2.6,se:26,fe:2.6,fol:7,ca:18,io:3},
+  "ground beef":{pot:346,zn:6.3,b6:.36,b12:2.5,se:22,fe:2.4,fol:9,ca:18,io:3},
+  "kebab":{pot:280,zn:3.5,b6:.3,b12:1.5,se:18,fe:2,fol:8,ca:15},
+  "bacon":{pot:565,zn:3.5,b6:.35,b12:1.2,se:62,fe:1.4,fol:1,ca:11,io:10},
+  "sausage":{pot:294,zn:2,b12:1,se:15,fe:1.4,fol:3,ca:12},
+  "ham":{pot:287,zn:2.2,b6:.4,b12:.7,se:25,fe:.8,fol:3,ca:7,io:10},
+  "turkey":{pot:249,zn:1.7,b6:.8,b12:1,se:30,fe:1.4,fol:6,ca:12,io:30},
+  "salmon":{vd:11,mgn:27,pot:363,zn:.4,b6:.6,b12:3.2,se:36,ve:1.1,fe:.8,fol:26,ca:12,io:14},
+  "tuna":{vd:1.7,mgn:27,pot:237,b6:.35,b12:2.5,se:80,fe:1.3,fol:5,ca:8,io:15},
+  "shrimp":{pot:264,zn:1.6,b12:1.1,se:49.5,fe:.52,fol:19,ca:70,io:35},
+  "cod":{mgn:32,pot:413,b6:.24,b12:.9,se:33,fe:.38,fol:7,ca:16,io:110},
+  "tofu":{mgn:30,pot:121,zn:.8,se:8.9,fe:5.4,fol:15,ca:350},
+  "pizza":{mgn:20,pot:172,zn:1.2,b12:.3,se:13,va:60,fe:2.5,fol:60,ca:188,io:8},
+  "burger":{mgn:18,pot:198,zn:2.3,b12:.9,se:15,fe:2.5,fol:50,ca:100,io:5},
+  "hot dog":{pot:152,zn:2.4,b12:1.3,se:15,fe:1.2,fol:30,ca:50},
+  "sandwich":{mgn:18,pot:150,zn:1,b6:.1,se:15,fe:1.8,fol:50,ca:80,io:5},
+  "burrito":{mgn:30,pot:240,zn:1.3,se:12,fe:2,fol:70,ca:120},
+  "taco":{pot:200,zn:1.8,b12:.5,se:10,fe:1.8,fol:40,ca:110},
+  "sushi":{mgn:15,pot:120,b12:.4,se:8,fe:.6,fol:15,ca:20,io:20},
+  "ramen":{mgn:12,pot:80,se:10,fe:1.5,fol:40,ca:20,io:5},
+  "soup":{pot:80,va:50,fe:.5,fol:15,ca:20},
+  "borscht":{mgn:12,pot:180,vc:8,va:80,fe:.6,fol:30,ca:30},
+  "curry":{mgn:20,pot:200,b6:.15,vc:5,fe:1.2,fol:20,ca:30},
+  "stir fry":{mgn:18,pot:220,b6:.15,vc:25,va:100,fe:1,fol:30,ca:30},
+  "lasagna":{pot:220,zn:1.4,b12:.6,se:14,va:80,fe:1.5,fol:40,ca:130,io:6},
+  "caesar salad":{pot:180,se:8,vc:10,va:120,fe:.8,fol:60,ca:80},
+  "salad":{mgn:12,pot:190,vc:12,va:150,fe:.8,fol:70,ca:30},
+  "carrot":{pot:320,b6:.14,vc:5.9,va:835,fe:.3,fol:19,ca:33},
+  "broccoli":{mgn:21,pot:316,b6:.18,se:2.5,vc:89,va:31,fe:.73,fol:63,ca:47},
+  "spinach":{mgn:79,pot:558,zn:.5,vc:28,va:469,ve:2,fe:2.7,fol:194,ca:99},
+  "cucumber":{mgn:13,pot:147,vc:2.8,fe:.28,fol:7,ca:16},
+  "tomato":{pot:237,vc:14,va:42,ve:.5,fe:.27,fol:15,ca:10},
+  "bell pepper":{pot:211,b6:.29,vc:128,va:80,ve:1.6,fe:.43,fol:46,ca:7},
+  "onion":{pot:146,b6:.12,vc:7.4,fe:.21,fol:19,ca:23},
+  "corn":{mgn:37,pot:270,b6:.09,vc:6.8,fe:.52,fol:42,ca:2},
+  "peas":{mgn:33,pot:244,zn:1.2,vc:40,va:38,fe:1.5,fol:65,ca:25},
+  "green beans":{mgn:25,pot:211,vc:12,va:35,fe:1,fol:33,ca:37},
+  "mushrooms":{vd:.2,pot:318,zn:.5,b6:.1,se:9.3,fe:.5,fol:17,ca:3,io:18},
+  "lettuce":{pot:194,vc:9,va:370,fe:.86,fol:38,ca:36},
+  "black beans":{mgn:70,pot:355,zn:1.1,se:1.2,fe:2.1,fol:149,ca:27},
+  "chickpeas":{mgn:48,pot:291,zn:1.5,b6:.14,se:3.7,fe:2.9,fol:172,ca:49},
+  "lentils":{mgn:36,pot:369,zn:1.3,b6:.18,se:2.8,fe:3.3,fol:181,ca:19},
+  "edamame":{mgn:64,pot:436,zn:1.4,vc:6.1,fe:2.3,fol:311,ca:63},
+  "almonds":{mgn:270,pot:733,zn:3.1,se:4,ve:25.6,fe:3.7,fol:44,ca:269},
+  "walnuts":{mgn:158,pot:441,zn:3.1,b6:.54,ve:.7,fe:2.9,fol:98,ca:98},
+  "cashews":{mgn:292,pot:660,zn:5.8,se:20,fe:6.7,fol:25,ca:37},
+  "peanuts":{mgn:168,pot:705,zn:3.3,b6:.35,se:7.2,ve:8.3,fe:4.6,fol:240,ca:92},
+  "chips":{mgn:67,pot:1196,b6:.66,vc:15,ve:3,fe:1.6,fol:45,ca:24},
+  "tortilla chips":{mgn:85,pot:215,zn:1.5,se:6,fe:1.5,fol:30,ca:140},
+  "popcorn":{mgn:144,pot:329,zn:3.1,fe:3.2,fol:31,ca:10},
+  "crackers":{mgn:18,pot:120,se:12,fe:3,fol:80,ca:25},
+  "rice cake":{mgn:131,pot:428,zn:3,fe:1.5,fol:20,ca:11},
+  "dark chocolate":{mgn:228,pot:715,zn:3.3,se:6.8,fe:11.9,fol:30,ca:73},
+  "chocolate":{mgn:63,pot:372,zn:2.3,fe:2.3,fol:12,ca:189},
+  "cookie":{se:12,pot:100,fe:2,fol:40,ca:25},
+  "donut":{se:12,pot:100,fe:2,fol:60,ca:60},
+  "muffin":{se:13,pot:120,fe:1.8,fol:50,ca:60},
+  "cake":{se:10,pot:110,fe:1.5,fol:40,ca:60},
+  "ice cream":{pot:199,b12:.4,va:118,fe:.09,fol:5,ca:128,io:21},
+  "pancake":{se:14,pot:130,fe:1.7,fol:45,ca:120},
+  "waffle":{se:14,pot:130,fe:2,fol:50,ca:150},
+  "maple syrup":{mgn:21,pot:212,zn:1.5,fe:.11,ca:102},
+  "protein powder":{mgn:50,pot:450,zn:1,b12:1.5,fe:3,fol:50,ca:300,io:20},
+  "protein bar":{mgn:80,pot:250,zn:3,fe:3,fol:60,ca:200},
+  "coffee":{pot:49,fol:2,ca:2},
+  "latte":{vd:.8,pot:120,b12:.4,fol:4,ca:100,io:10},
+  "cappuccino":{vd:.6,pot:100,b12:.3,fol:3,ca:80,io:8},
+  "orange juice":{mgn:11,pot:200,vc:50,fe:.2,fol:30,ca:11},
+  "apple juice":{pot:101,fe:.12,ca:8},
+  "smoothie":{pot:200,vc:30,fe:.4,fol:20,ca:60},
+  "wine":{pot:71,mgn:12,fe:.46,fol:1,ca:8},
+  "beer":{pot:27,mgn:6,fe:.02,fol:6,ca:4}};
 FOODS.forEach(f => { f.m = MICRO_DATA[f.n[0]] || null; });
 
-function emptyMicros(){ const o={}; MICROS.forEach(x=>o[x.key]=0); return o; }
+function emptyMicros(){ const o={}; ALL_MICRO_KEYS.forEach(k=>o[k]=0); return o; }
 function scaleMicros(m, factor){
   if (!m) return null;
   const o = {};
-  MICROS.forEach(x => { if (m[x.key]) o[x.key] = Math.round(m[x.key]*factor*100)/100; });
+  ALL_MICRO_KEYS.forEach(k => { if (m[k]) o[k] = Math.round(m[k]*factor*100)/100; });
   return Object.keys(o).length ? o : null;
 }
 
@@ -718,6 +788,7 @@ function scaleMicros(m, factor){
 const STORE_KEY = "ct-data-v1";
 const defaultState = () => ({
   settings: { kcal: 2000, protein: 120, carbs: 220, fat: 70, apiKey: "", geminiKey: "", provider: "auto" },
+  profile: null,
   days: {},
   meals: []
 });
@@ -1018,14 +1089,14 @@ function render(){
 function microTotals(dateKey){
   const t = emptyMicros();
   entries(dateKey).forEach(e => {
-    if (e.m) MICROS.forEach(x => { if (e.m[x.key]) t[x.key] += e.m[x.key]; });
+    if (e.m) ALL_MICRO_KEYS.forEach(k => { if (e.m[k]) t[k] = (t[k]||0) + e.m[k]; });
   });
   return t;
 }
 
 function renderMicros(){
   const t = microTotals(viewDate);
-  $("microGrid").innerHTML = MICROS.map(x => {
+  $("microGrid").innerHTML = MICROS_active().map(x => {
     const val = t[x.key];
     const pct = Math.min(val/x.goal*100, 100);
     const shown = x.goal < 20 ? Math.round(val*10)/10 : Math.round(val);
@@ -1193,7 +1264,7 @@ function renderWeek(){
 /* ==================== MODALS ==================== */
 let editingId = null;
 function buildMicroInputs(m){
-  $("eMicroGrid").innerHTML = MICROS.map(x =>
+  $("eMicroGrid").innerHTML = MICROS_active().map(x =>
     '<div class="field"><label>' + x.label + ' (' + x.unit + ')</label>' +
     '<input type="number" min="0" step="0.01" id="emi_' + x.key + '" value="' + (m && m[x.key] ? m[x.key] : '') + '"></div>'
   ).join("");
@@ -1201,7 +1272,7 @@ function buildMicroInputs(m){
 }
 function readMicroInputs(){
   const m = {};
-  MICROS.forEach(x => {
+  MICROS_active().forEach(x => {
     const v = Number($("emi_" + x.key).value);
     if (v > 0) m[x.key] = Math.round(v*100)/100;
   });
@@ -1282,6 +1353,86 @@ function renderSavedMeals(){
       save(); renderSavedMeals();
     }));
 }
+/* ==================== PROFILE / CALORIE CALCULATOR ==================== */
+/* Mifflin-St Jeor BMR. TDEE = BMR*1.1 (baseline NEAT + digestion) + active kcal.
+   If no smartwatch number, active kcal is estimated from steps + workouts. */
+function calcPlan(p){
+  const bmr = 10*p.weight + 6.25*p.height - 5*p.age + (p.sex === "female" ? -161 : 5);
+  let active = p.activeKcal;
+  if (!active) {
+    const stepsKcal = p.steps * p.weight * 0.0005;          // ~375 kcal for 10k steps at 75 kg
+    const workoutKcal = p.workouts * 300 / 7;               // ~300 kcal per strength session
+    active = Math.round(stepsKcal + workoutKcal);
+  }
+  const tdee = Math.round(bmr * 1.1 + active);
+  const kcalAdj = Math.round(p.rate * 1100);                // 1 kg fat ≈ 7700 kcal → per-day adjustment
+  const minKcal = p.sex === "female" ? 1200 : 1500;
+  const kcal = Math.max(tdee + kcalAdj, minKcal);
+  const cutting = p.rate < 0;
+  const protein = Math.round(p.weight * (cutting ? 2.0 : 1.8));
+  const fat = Math.max(Math.round(p.weight * 0.8), 50);
+  const carbs = Math.max(Math.round((kcal - protein*4 - fat*9) / 4), 0);
+  return { bmr: Math.round(bmr), active, tdee, kcal, protein, carbs, fat };
+}
+
+function readOnboardForm(){
+  const sex = $("obSex").value;
+  const age = Number($("obAge").value);
+  const height = Number($("obHeight").value);
+  const weight = Number($("obWeight").value);
+  if (!age || !height || !weight) { toast("Please fill in age, height and weight"); return null; }
+  return {
+    sex, age, height, weight,
+    workouts: Number($("obWorkouts").value) || 0,
+    steps: Number($("obSteps").value) || 0,
+    activeKcal: Number($("obActive").value) || 0,
+    pregnant: sex === "female" ? ($("obPreg").value || "") : "",
+    rate: Number($("obGoal").value)
+  };
+}
+
+let pendingPlan = null;
+function onboardCalculate(){
+  const p = readOnboardForm();
+  if (!p) return;
+  const plan = calcPlan(p);
+  pendingPlan = { profile: p, plan };
+  const goalWord = p.rate < 0 ? "lose ~" + Math.abs(p.rate) + " kg/week" : p.rate > 0 ? "gain ~" + p.rate + " kg/week" : "maintain your weight";
+  $("obResult").style.display = "block";
+  $("obResult").innerHTML =
+    "Estimated daily burn (TDEE): <b>" + plan.tdee + " kcal</b><br>" +
+    "To " + goalWord + ": <b>" + plan.kcal + " kcal/day</b><br>" +
+    "Protein <b>" + plan.protein + " g</b> · Carbs <b>" + plan.carbs + " g</b> · Fat <b>" + plan.fat + " g</b>" +
+    (p.pregnant === "yes" ? "<br><span style='color:var(--danger)'>Pregnancy changes calorie and nutrient needs — please consult your doctor.</span>" : "");
+  $("obApply").style.display = "";
+}
+function onboardApply(){
+  if (!pendingPlan) return;
+  state.profile = pendingPlan.profile;
+  const s = state.settings, pl = pendingPlan.plan;
+  s.kcal = pl.kcal; s.protein = pl.protein; s.carbs = pl.carbs; s.fat = pl.fat;
+  save(); render(); closeModals(); toast("Goals set: " + pl.kcal + " kcal/day");
+  pendingPlan = null;
+}
+function openOnboarding(prefill){
+  const p = state.profile;
+  if (prefill && p) {
+    $("obSex").value = p.sex; $("obAge").value = p.age; $("obHeight").value = p.height;
+    $("obWeight").value = p.weight; $("obWorkouts").value = p.workouts || "";
+    $("obSteps").value = p.steps || ""; $("obActive").value = p.activeKcal || "";
+    $("obGoal").value = String(p.rate); if (p.sex === "female") $("obPreg").value = p.pregnant || "";
+  }
+  $("onboardTitle").textContent = p ? "Update your goals" : "Welcome! Let's set your goals";
+  $("obResult").style.display = "none"; $("obApply").style.display = "none"; pendingPlan = null;
+  onboardSexChanged();
+  $("onboardModal").classList.add("show");
+}
+function onboardSexChanged(){
+  const isF = $("obSex").value === "female";
+  $("obPregWrap").style.display = isF ? "" : "none";
+  $("obPregNote").style.display = (isF && $("obPreg").value === "yes") ? "" : "none";
+}
+
 function saveSettings(){
   const s = state.settings;
   s.kcal = Math.max(Number($("setKcal").value) || 2000, 500);
@@ -1338,6 +1489,12 @@ function bindEvents(){
   });
   document.querySelector('#mealPicker .chip[data-meal="' + selectedMeal + '"]').classList.add("active");
   $("settingsBtn").addEventListener("click", openSettings);
+  $("recalcBtn").addEventListener("click", () => { closeModals(); openOnboarding(true); });
+  $("obSex").addEventListener("change", onboardSexChanged);
+  $("obPreg").addEventListener("change", onboardSexChanged);
+  $("obCalc").addEventListener("click", onboardCalculate);
+  $("obApply").addEventListener("click", onboardApply);
+  $("obSkip").addEventListener("click", closeModals);
   $("settingsSave").addEventListener("click", saveSettings);
   $("settingsCancel").addEventListener("click", closeModals);
   $("entrySave").addEventListener("click", saveEntryModal);
@@ -1353,6 +1510,7 @@ function bindEvents(){
 
 bindEvents();
 render();
+if (!state.profile) openOnboarding(false);
 </script>
 </body>
 </html>
