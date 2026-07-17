@@ -1394,6 +1394,35 @@ function renderWeek(){
 
 /* ==================== MODALS ==================== */
 let editingId = null;
+let entryBase = null; // snapshot of values when the edit modal opened, for amount-based rescaling
+
+function parseAmountNum(str){
+  const m = String(str).match(/(\d+\s+\d+\/\d+|\d+\/\d+|\d*\.?\d+)/);
+  if (!m) return null;
+  const num = fracToNum(m[1]);
+  if (!num && num !== 0) return null;
+  const rest = (str.slice(0, m.index) + str.slice(m.index + m[1].length)).replace(/\s+/g," ").trim().toLowerCase();
+  return { num, rest };
+}
+
+function onAmountEdit(){
+  if (!entryBase) return;
+  const oldA = parseAmountNum(entryBase.amount);
+  const newA = parseAmountNum($("eAmount").value);
+  if (!oldA || !newA || !oldA.num) return;
+  // Same unit text, or just a bare number typed (e.g. "0.8") — treat as new quantity of the same unit.
+  if (newA.rest !== "" && oldA.rest !== newA.rest) return; // unit/text changed — can't infer
+  const r = newA.num / oldA.num;
+  $("eKcal").value = Math.round(entryBase.kcal * r);
+  $("eProtein").value = round1(entryBase.p * r);
+  $("eCarbs").value = round1(entryBase.c * r);
+  $("eFat").value = round1(entryBase.f * r);
+  MICROS_active().forEach(x => {
+    const el = $("emi_" + x.key);
+    if (el) el.value = entryBase.m && entryBase.m[x.key] ? Math.round(entryBase.m[x.key]*r*100)/100 : "";
+  });
+}
+
 function buildMicroInputs(m){
   $("eMicroGrid").innerHTML = MICROS_active().map(x =>
     '<div class="field"><label>' + x.label + ' (' + x.unit + ')</label>' +
@@ -1417,11 +1446,13 @@ function openEditEntry(id){
   $("entryDelete").style.display = "";
   $("eName").value = e.name; $("eAmount").value = e.amount; $("eMeal").value = e.meal;
   $("eKcal").value = e.kcal; $("eProtein").value = e.p; $("eCarbs").value = e.c; $("eFat").value = e.f;
+  entryBase = { amount: e.amount, kcal: e.kcal, p: e.p, c: e.c, f: e.f, m: e.m || null };
   buildMicroInputs(e.m);
   $("entryModal").classList.add("show");
 }
 function openManualEntry(prefillName){
   editingId = null;
+  entryBase = null;
   $("entryModalTitle").textContent = "Add food manually";
   $("entryDelete").style.display = "none";
   $("eName").value = prefillName ? prefillName.replace(/\b\w/g,c=>c.toUpperCase()) : "";
@@ -1432,9 +1463,18 @@ function openManualEntry(prefillName){
   $("eName").focus();
 }
 function saveEntryModal(){
+  let amountVal = $("eAmount").value.trim() || "1 serving";
+  if (entryBase) {
+    // "0.8" typed over "1 × breast" -> store "0.8 × breast"
+    const oldA = parseAmountNum(entryBase.amount), newA = parseAmountNum(amountVal);
+    if (oldA && newA && newA.rest === "" && oldA.rest) {
+      const m = String(entryBase.amount).match(/(\d+\s+\d+\/\d+|\d+\/\d+|\d*\.?\d+)/);
+      amountVal = entryBase.amount.slice(0, m.index) + newA.num + entryBase.amount.slice(m.index + m[1].length);
+    }
+  }
   const vals = {
     name: $("eName").value.trim() || "Food",
-    amount: $("eAmount").value.trim() || "1 serving",
+    amount: amountVal,
     meal: $("eMeal").value,
     kcal: Math.round(Number($("eKcal").value) || 0),
     p: round1(Number($("eProtein").value) || 0),
@@ -1637,6 +1677,7 @@ function bindEvents(){
   $("settingsSave").addEventListener("click", saveSettings);
   $("settingsCancel").addEventListener("click", closeModals);
   $("entrySave").addEventListener("click", saveEntryModal);
+  $("eAmount").addEventListener("input", onAmountEdit);
   $("entryCancel").addEventListener("click", closeModals);
   $("entryDelete").addEventListener("click", deleteEntry);
   $("exportBtn").addEventListener("click", exportData);
