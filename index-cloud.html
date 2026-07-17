@@ -899,16 +899,14 @@ async function sendLoginLink(){
   else { status.textContent = "Check your email for the login link!"; status.style.color = "var(--accent)"; }
 }
 
+let authInitialized = false;
+
 async function initAuth(){
-  const { data: { session } } = await sb.auth.getSession();
-  if (session && session.user) {
-    $("loginModal").classList.remove("show");
-    await syncOnLogin(session.user);
-  } else {
-    $("loginModal").classList.add("show");
-  }
+  // Listen first: when the page opens from a magic link, Supabase parses the
+  // token from the URL and fires SIGNED_IN — possibly after our first check.
   sb.auth.onAuthStateChange(async (event, session) => {
     if (event === "SIGNED_IN" && session && session.user) {
+      if (currentUser && currentUser.id === session.user.id) return; // already handled
       closeModals();
       await syncOnLogin(session.user);
     } else if (event === "SIGNED_OUT") {
@@ -916,6 +914,20 @@ async function initAuth(){
       $("accountBtn").textContent = "👤 Sync";
     }
   });
+
+  // If arriving via magic link (#access_token in URL), give Supabase a moment
+  // to consume it before we check for a session.
+  if (window.location.hash.includes("access_token")) {
+    await new Promise(r => setTimeout(r, 600));
+  }
+  const { data: { session } } = await sb.auth.getSession();
+  if (session && session.user) {
+    closeModals();
+    if (!currentUser) await syncOnLogin(session.user);
+  } else if (!currentUser) {
+    $("loginModal").classList.add("show");
+  }
+  authInitialized = true;
 }
 
 function todayKey(offsetDate) {
