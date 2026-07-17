@@ -847,12 +847,15 @@ function queueCloudSave(){
 
 async function pushToCloud(userId, stateObj){
   try {
-    const { data: existing } = await sb.from("tracker_data").select("id").eq("user_id", userId).maybeSingle();
+    const { data: existing, error: selErr } = await sb.from("tracker_data").select("user_id").eq("user_id", userId).maybeSingle();
+    if (selErr) { console.warn("cloud check failed:", selErr.message); }
+    let res;
     if (existing) {
-      await sb.from("tracker_data").update({ state: stateObj }).eq("user_id", userId);
+      res = await sb.from("tracker_data").update({ state: stateObj }).eq("user_id", userId);
     } else {
-      await sb.from("tracker_data").insert({ state: stateObj, user_id: userId });
+      res = await sb.from("tracker_data").insert({ state: stateObj, user_id: userId });
     }
+    if (res.error) console.warn("cloud save failed:", res.error.message);
   } catch (e) { console.warn("cloud save failed", e); }
 }
 
