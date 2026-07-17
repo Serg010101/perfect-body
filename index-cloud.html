@@ -215,6 +215,25 @@
   .micro-row .macro-top { font-size: 12.5px; }
   .micro-row .bar { height: 7px; }
   details.micro-details summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 10px; }
+
+  /* ===== Mobile layout: fit header, reorder cards ===== */
+  @media (max-width: 640px) {
+    .header-inner { flex-wrap: wrap; row-gap: 8px; padding: 10px 12px; }
+    .logo { font-size: 15px; flex: 1; min-width: 0; }
+    .logo span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #accountBtn, #settingsBtn { max-width: 118px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .date-nav { order: 5; width: 100%; justify-content: center; }
+
+    /* Reorder: ring → add food → macros → log → week → micros */
+    .container { display: flex; flex-direction: column; gap: 16px; }
+    .dashboard { display: contents; }
+    .ring-card { order: 1; margin-top: 18px; }
+    .add-box   { order: 2; margin-top: 0; }
+    .macros    { order: 3; }
+    .log       { order: 4; margin-top: 0; }
+    .week-card { order: 5; margin-top: 0; }
+    .micro-card{ order: 6; margin-top: 0; margin-bottom: 10px; }
+  }
 </style>
 </head>
 <body>
